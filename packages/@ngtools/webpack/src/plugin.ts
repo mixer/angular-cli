@@ -9,7 +9,7 @@ const NodeWatchFileSystem = require('webpack/lib/node/NodeWatchFileSystem');
 
 import {CompilerCliIsSupported, __NGTOOLS_PRIVATE_API_2, VERSION} from './ngtools_api';
 import {WebpackResourceLoader} from './resource_loader';
-import {WebpackCompilerHost} from './compiler_host';
+import {WebpackCompilerHost, FileTransform} from './compiler_host';
 import {resolveEntryModuleFromMain} from './entry_resolver';
 import {Tapable} from './webpack';
 import {PathsPlugin} from './paths-plugin';
@@ -36,6 +36,7 @@ export interface AotPluginOptions {
   i18nFormat?: string;
   locale?: string;
   missingTranslation?: string;
+  transform?: FileTransform;
 
   // Use tsconfig to include path globs.
   exclude?: string | string[];
@@ -233,7 +234,11 @@ export class AotPlugin implements Tapable {
       this._skipCodeGeneration = options.skipCodeGeneration;
     }
 
-    this._compilerHost = new WebpackCompilerHost(this._compilerOptions, this._basePath);
+    this._compilerHost = new WebpackCompilerHost(
+      this._compilerOptions,
+      this._basePath,
+      this._options.transform,
+    );
 
     // Override some files in the FileSystem.
     if (options.hostOverrideFileSystem) {
