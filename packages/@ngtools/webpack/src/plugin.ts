@@ -35,6 +35,7 @@ export interface AotPluginOptions {
   locale?: string;
   missingTranslation?: string;
   transform?: FileTransform;
+  additionalBundles?: string[];
 
   // Use tsconfig to include path globs.
   exclude?: string | string[];
@@ -570,6 +571,15 @@ export class AotPlugin implements Tapable {
         this._discoveredLazyRoutes = this.firstRun
           ? this._getLazyRoutesFromNgtools()
           : this._findLazyRoutesInAst();
+
+        if (this._options.additionalBundles) {
+          this._options.additionalBundles.forEach(ref => {
+            const [relativePath, module] = ref.split('#');
+            const absPath = path.resolve(relativePath);
+            const entryDir = path.dirname(this.entryModule.path);
+            this._discoveredLazyRoutes[`${path.relative(entryDir, absPath)}#${module}`] = absPath;
+          });
+        }
 
         // Process the lazy routes discovered.
         Object.keys(this.discoveredLazyRoutes)
