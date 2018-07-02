@@ -12,6 +12,13 @@ import { basename, dirname, join } from 'path';
 import * as ts from 'typescript';
 import { WebpackResourceLoader } from './resource_loader';
 
+/**
+ * FileTransform can be passed into the AoT plugin to transform loaded
+ * TypeScript files, before they're parsed.
+ */
+export interface FileTransform {
+  (contents: string, filename: string): string;
+}
 
 export interface OnErrorFn {
   (message: string): void;
@@ -124,6 +131,7 @@ export class WebpackCompilerHost implements ts.CompilerHost {
     private _options: ts.CompilerOptions,
     basePath: string,
     private _host: virtualFs.Host<fs.Stats> = new NodeJsSyncHost(),
+    private _transform?: FileTransform,
   ) {
     this._syncHost = new virtualFs.SyncDelegateHost(_host);
     this._setParentNodes = true;
@@ -216,8 +224,12 @@ export class WebpackCompilerHost implements ts.CompilerHost {
     const stats = this._files[p];
     if (!stats) {
       try {
-        const result = virtualFs.fileBufferToString(this._syncHost.read(p));
+        let result = virtualFs.fileBufferToString(this._syncHost.read(p));
         if (result !== undefined) {
+          if (this._transform) {
+            result = this._transform(result, fileName);
+          }
+
           if (this._cache) {
             this._setFileContent(p, result);
           }

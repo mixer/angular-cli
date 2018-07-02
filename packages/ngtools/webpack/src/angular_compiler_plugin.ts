@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
 import { time, timeEnd } from './benchmark';
-import { WebpackCompilerHost, workaroundResolve } from './compiler_host';
+import { FileTransform, WebpackCompilerHost, workaroundResolve } from './compiler_host';
 import { resolveEntryModuleFromMain } from './entry_resolver';
 import { gatherDiagnostics, hasErrors } from './gather_diagnostics';
 import { LazyRouteMap, findLazyRoutes } from './lazy_routes';
@@ -82,6 +82,8 @@ export interface AngularCompilerPluginOptions {
   missingTranslation?: string;
   platform?: PLATFORM;
   nameLazyFiles?: boolean;
+  transform?: FileTransform;
+  additionalBundles?: string[];
 
   // added to the list of lazy routes
   additionalLazyModules?: { [module: string]: string };
@@ -265,6 +267,7 @@ export class AngularCompilerPlugin {
       this._compilerOptions,
       this._basePath,
       this._options.host,
+      this._options.transform,
     );
     webpackCompilerHost.enableCaching();
 
@@ -477,6 +480,15 @@ export class AngularCompilerPlugin {
   // This will require a registry of known references to a lazy route, removing it when no
   // module references it anymore.
   private _processLazyRoutes(discoveredLazyRoutes: LazyRouteMap) {
+    if (this._options.additionalBundles) {
+      this._options.additionalBundles.forEach(ref => {
+        const [relativePath, module] = ref.split('#');
+        const absPath = path.resolve(relativePath);
+        const entryDir = path.dirname(this.entryModule!.path);
+        discoveredLazyRoutes[`${path.relative(entryDir, absPath)}#${module}`] = absPath;
+      });
+    }
+
     Object.keys(discoveredLazyRoutes)
       .forEach(lazyRouteKey => {
         const [lazyRouteModule, moduleName] = lazyRouteKey.split('#');
